@@ -1,4 +1,4 @@
 port: 3000
-proofreadApiUrl: "http://127.0.0.1:8700/api/v1/proofread"  # 用于校对的API地址
+proofreadApiUrl: "http://170.18.9.106:8700/api/v1/proofread"  # 用于校对的API地址
 
 

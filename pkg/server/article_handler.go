@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"proofread-exhibition/config"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type Result struct {
@@ -31,18 +33,6 @@ type ErrorItem struct {
 	Suggestions   []string `json:"suggestions"`             // 建议替换词列表
 	Message       string   `json:"message"`                 // 错误解释
 	Sentence      string   `json:"sentence"`                // 所属句子（便于前端展示上下文）
-}
-
-// ArticleItem 文章列表项
-type ArticleItem struct {
-	ArticleID int64 `json:"articleId"`
-}
-
-// ArticleWithHighlight 带高亮的文章
-type ArticleWithHighlight struct {
-	ArticleID          int64  `json:"articleId"`
-	Title              string `json:"title"`
-	HighlightedContent string `json:"highlightedContent"`
 }
 
 // ProofreadHandler 简单页面的表单提交处理：调用后端校阅接口并高亮展示结果
@@ -76,21 +66,42 @@ func ProofreadHandler(c *gin.Context, cfg *config.GlobalConfig) {
 		})
 		return
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			zap.S().Errorf(err.Error())
+		}
+	}(resp.Body)
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	var raw interface{}
+	err = json.Unmarshal(bodyBytes, &raw)
+	if err != nil {
+		fmt.Println("Invalid JSON:", err)
+		return
+	}
+	//格式化json，美观输出
+	formattedJSON, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		c.HTML(http.StatusBadGateway, "index.html", gin.H{
-			"error":   fmt.Sprintf("校阅接口返回错误状态码: %d", resp.StatusCode),
-			"content": text,
+			"error":       fmt.Sprintf("校阅接口返回错误状态码: %d", resp.StatusCode),
+			"content":     text,
+			"rawResponse": string(formattedJSON),
 		})
 		return
 	}
 
 	var result Result
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		c.HTML(http.StatusInternalServerError, "index.html", gin.H{
-			"error":   fmt.Sprintf("解析校阅结果失败: %v", err),
-			"content": text,
+			"error":       fmt.Sprintf("解析校阅结果失败: %v", err),
+			"content":     text,
+			"rawResponse": string(formattedJSON),
 		})
 		return
 	}
@@ -99,10 +110,11 @@ func ProofreadHandler(c *gin.Context, cfg *config.GlobalConfig) {
 
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"content":      text,
-		"highlighted":  template.HTML(highlighted), //nolint:gosec
+		"highlighted":  template.HTML(highlighted),
 		"errorItems":   result.Data.Errors,
 		"hasResult":    true,
 		"originalText": text,
+		"rawResponse":  string(formattedJSON),
 	})
 }
 
@@ -144,25 +156,25 @@ func highlightContent(content string, results []ErrorItem) string {
 		contentRunes = insertRunes(contentRunes, start, []rune(startTag))
 	}
 
-	// 先转义整个内容（包括我们插入的标签）
-	escaped := html.EscapeString(string(contentRunes))
+	// 预防xss 先转义整个内容（包括我们插入的标签）
+	//escaped := html.EscapeString(string(contentRunes))
+	//
+	//// 恢复我们插入的 HTML 标签（需要按照嵌套顺序恢复）
+	//// 先恢复最外层的 highlight span
+	//escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;highlight&#34;&gt;", "<span class=\"highlight\">")
+	//// 恢复 tooltip span
+	//escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip&#34;&gt;", "<span class=\"tooltip\">")
+	//// 恢复 tooltip-content span
+	//escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip-content&#34;&gt;", "<span class=\"tooltip-content\">")
+	//escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip-content tooltip-message&#34;&gt;", "<span class=\"tooltip-content tooltip-message\">")
+	//// 恢复 tooltip-message span
+	//escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip-message&#34;&gt;", "<span class=\"tooltip-message\">")
+	//// 恢复 tooltip-suggestion span
+	//escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip-suggestion&#34;&gt;", "<span class=\"tooltip-suggestion\">")
+	//// 恢复所有结束标签
+	//escaped = strings.ReplaceAll(escaped, "&lt;/span&gt;", "</span>")
 
-	// 恢复我们插入的 HTML 标签（需要按照嵌套顺序恢复）
-	// 先恢复最外层的 highlight span
-	escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;highlight&#34;&gt;", "<span class=\"highlight\">")
-	// 恢复 tooltip span
-	escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip&#34;&gt;", "<span class=\"tooltip\">")
-	// 恢复 tooltip-content span
-	escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip-content&#34;&gt;", "<span class=\"tooltip-content\">")
-	escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip-content tooltip-message&#34;&gt;", "<span class=\"tooltip-content tooltip-message\">")
-	// 恢复 tooltip-message span
-	escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip-message&#34;&gt;", "<span class=\"tooltip-message\">")
-	// 恢复 tooltip-suggestion span
-	escaped = strings.ReplaceAll(escaped, "&lt;span class=&#34;tooltip-suggestion&#34;&gt;", "<span class=\"tooltip-suggestion\">")
-	// 恢复所有结束标签
-	escaped = strings.ReplaceAll(escaped, "&lt;/span&gt;", "</span>")
-
-	return escaped
+	return string(contentRunes)
 }
 
 // buildTooltip 构建 tooltip HTML 内容

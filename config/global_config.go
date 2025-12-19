@@ -30,7 +30,8 @@ func (g *GlobalConfig) Validate() []error {
 
 func NewDefaultGlobalConfig() *GlobalConfig {
 	return &GlobalConfig{
-		Port: 3000,
+		Port:            3000,
+		ProofreadApiUrl: "127.0.0.1:8700",
 	}
 }
 func TryLoadFromDisk(configFilePath string) (*GlobalConfig, error) {

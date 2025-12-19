@@ -212,6 +212,137 @@
             color: #999;
             font-size: 16px;
         }
+
+        .api-response {
+            margin-top: 16px;
+            background: #f7f7f9;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 12px 14px;
+        }
+
+        .api-response-title {
+            font-size: 14px;
+            color: #444;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .api-response-body {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 10px 12px;
+            font-family: Menlo, Consolas, "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        details.api-response-details {
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            background: #f7f7f9;
+            padding: 10px 12px;
+        }
+
+        details.api-response-details summary {
+            cursor: pointer;
+            font-size: 14px;
+            color: #444;
+            font-weight: 600;
+            list-style: none;
+            outline: none;
+        }
+
+        details.api-response-details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details.api-response-details summary::before {
+            content: "▶";
+            display: inline-block;
+            margin-right: 6px;
+            font-size: 12px;
+            transition: transform 0.1s ease;
+        }
+
+        details.api-response-details[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        /* 加载遮罩层 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(2px);
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        /* 加载动画容器 */
+        .loading-content {
+            text-align: center;
+        }
+
+        /* 旋转的加载圆圈 */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #409EFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* 按钮加载状态 */
+        button.loading {
+            position: relative;
+            color: transparent;
+            pointer-events: none;
+        }
+
+        button.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
     </style>
 </head>
 
@@ -222,10 +353,12 @@
         <div class="input-panel">
             <div class="input-panel-title">输入待校阅内容</div>
             <div class="input-panel-desc">在下方文本框中输入或粘贴文章内容，点击「开始校阅」后将在下方展示高亮结果。</div>
-            <form method="post" action="/proofread">
-                <textarea name="content" placeholder="在这里粘贴或输入需要校阅的文章...">{{ .content }}</textarea>
+            <form method="post" action="/proofread" id="proofreadForm">
+                <label>
+                    <textarea name="content" placeholder="在这里粘贴或输入需要校阅的文章...">{{ .content }}</textarea>
+                </label>
                 <div class="actions">
-                    <button type="submit">开始校阅</button>
+                    <button type="submit" id="submitBtn">开始校阅</button>
                     <span class="hint">后端接口地址来自配置文件中的 proofreadApiUrl。</span>
                 </div>
             </form>
@@ -249,7 +382,55 @@
             暂无校阅结果，请先在上方输入内容并点击「开始校阅」。
         </div>
         {{ end }}
+
+        {{ if .rawResponse }}
+        <details class="api-response-details">
+            <summary>接口原始响应（点击展开）</summary>
+            <div class="api-response" style="border:none; padding: 10px 0 0 0; background: transparent;">
+                <pre class="api-response-body">{{ .rawResponse }}</pre>
+            </div>
+        </details>
+        {{ end }}
     </div>
+
+    <!-- 加载遮罩层 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text">正在校阅中，请稍候...</div>
+        </div>
+    </div>
+
+    <script>
+        // 表单提交时显示加载动画
+        document.getElementById('proofreadForm').addEventListener('submit', function (e) {
+            var textarea = this.querySelector('textarea[name="content"]');
+            var content = textarea.value.trim();
+
+            // 如果内容为空，不显示加载动画
+            if (!content) {
+                return;
+            }
+
+            // 显示加载遮罩
+            document.getElementById('loadingOverlay').classList.add('show');
+
+            // 禁用提交按钮并显示加载状态
+            var submitBtn = document.getElementById('submitBtn');
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+        });
+
+        // 页面加载完成后，如果有内容，说明是提交后的页面，隐藏加载动画
+        window.addEventListener('load', function () {
+            document.getElementById('loadingOverlay').classList.remove('show');
+            var submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
 </body>
 
 </html>
