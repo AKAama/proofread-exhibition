@@ -9,7 +9,7 @@ import (
 )
 
 func InitRouter(engine *gin.Engine, cfg *config.GlobalConfig) {
-	// 加载简单的模板页面，容器内要修改为/app/pkg/tpl/*
+	// 加载简单的模板页面
 	engine.LoadHTMLGlob("tpl/*")
 
 	// 提供静态文件服务（favicon.ico 等）
