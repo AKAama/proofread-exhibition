@@ -382,21 +382,20 @@
             {{ end }}
         </div>
 
-        {{ if .hasResult }}
         <div class="article-item">
             <div class="article-header">
                 <h2>校阅结果对比</h2>
             </div>
             <div class="compare-row">
                 <div class="compare-col">
-                    <div class="compare-title">服务一（主服务） · 共 {{ len .errorItems }} 处提示</div>
-                    <div class="article-content">
+                    <div class="compare-title">服务一（主服务） · 共 <span id="errorCount">{{ len .errorItems }}</span> 处提示</div>
+                    <div class="article-content" id="serviceOneContent">
                         {{ .highlighted }}
                     </div>
                 </div>
                 <div class="compare-col">
                     <div class="compare-title">服务二（对比服务）</div>
-                    <div class="article-content">
+                    <div class="article-content" id="serviceTwoContent">
                         {{ if .highlighted2 }}
                         {{ .highlighted2 }}
                         {{ else }}
@@ -406,67 +405,86 @@
                 </div>
             </div>
         </div>
-        {{ else }}
-        <div class="empty-state">
-            暂无校阅结果，请先在上方输入内容并点击「开始校阅」。
-        </div>
-        {{ end }}
 
-        {{ if .rawResponse }}
         <details class="api-response-details" style="margin-top:16px;">
             <summary>服务一原始响应（点击展开）</summary>
             <div class="api-response" style="border:none; padding: 10px 0 0 0; background: transparent;">
-                <pre class="api-response-body">{{ .rawResponse }}</pre>
+                <pre class="api-response-body" id="raw1">{{ .rawResponse }}</pre>
             </div>
         </details>
-        {{ end }}
 
-        {{ if .rawResponse2 }}
         <details class="api-response-details" style="margin-top:12px;">
             <summary>服务二原始响应（点击展开）</summary>
             <div class="api-response" style="border:none; padding: 10px 0 0 0; background: transparent;">
-                <pre class="api-response-body">{{ .rawResponse2 }}</pre>
+                <pre class="api-response-body" id="raw2">{{ .rawResponse2 }}</pre>
             </div>
         </details>
-        {{ end }}
-    </div>
-
-    <!-- 加载遮罩层 -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <div class="loading-text">正在校阅中，请稍候...</div>
-        </div>
     </div>
 
     <script>
-        // 表单提交时显示加载动画
+        // 表单提交改为前端并行调用两个 JSON 接口
         document.getElementById('proofreadForm').addEventListener('submit', function (e) {
+            e.preventDefault();
             var textarea = this.querySelector('textarea[name="content"]');
             var content = textarea.value.trim();
 
-            // 如果内容为空，不显示加载动画
             if (!content) {
                 return;
             }
 
-            // 显示加载遮罩
-            document.getElementById('loadingOverlay').classList.add('show');
-
-            // 禁用提交按钮并显示加载状态
             var submitBtn = document.getElementById('submitBtn');
             submitBtn.classList.add('loading');
             submitBtn.disabled = true;
-        });
 
-        // 页面加载完成后，如果有内容，说明是提交后的页面，隐藏加载动画
-        window.addEventListener('load', function () {
-            document.getElementById('loadingOverlay').classList.remove('show');
-            var submitBtn = document.getElementById('submitBtn');
-            if (submitBtn) {
-                submitBtn.classList.remove('loading');
-                submitBtn.disabled = false;
+            var pending = 2;
+            function doneOne() {
+                pending--;
+                if (pending <= 0) {
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                }
             }
+
+            // 调用服务一
+            fetch('/api/proofread/one', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            }).then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data.highlightedHtml !== undefined && document.getElementById('serviceOneContent')) {
+                        document.getElementById('serviceOneContent').innerHTML = data.highlightedHtml;
+                    }
+                    if (data.errorCount !== undefined && document.getElementById('errorCount')) {
+                        document.getElementById('errorCount').textContent = data.errorCount;
+                    }
+                    if (data.rawResponse !== undefined && document.getElementById('raw1')) {
+                        document.getElementById('raw1').textContent = data.rawResponse;
+                    }
+                }).catch(function () {
+                    if (document.getElementById('serviceOneContent')) {
+                        document.getElementById('serviceOneContent').innerHTML = '<span class=\"hint\">服务一请求失败</span>';
+                    }
+                }).finally(doneOne);
+
+            // 调用服务二
+            fetch('/api/proofread/two', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            }).then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data.highlightedHtml !== undefined && document.getElementById('serviceTwoContent')) {
+                        document.getElementById('serviceTwoContent').innerHTML = data.highlightedHtml;
+                    }
+                    if (data.rawResponse !== undefined && document.getElementById('raw2')) {
+                        document.getElementById('raw2').textContent = data.rawResponse;
+                    }
+                }).catch(function () {
+                    if (document.getElementById('serviceTwoContent')) {
+                        document.getElementById('serviceTwoContent').innerHTML = '<span class=\"hint\">服务二请求失败</span>';
+                    }
+                }).finally(doneOne);
         });
     </script>
 </body>

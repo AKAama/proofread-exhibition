@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"html/template"
 	"io"
 	"net/http"
 	"sort"
@@ -14,7 +13,6 @@ import (
 	"proofread-exhibition/config"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type Result struct {
@@ -43,62 +41,61 @@ type SecondServiceItem struct {
 	Text     string `json:"text"`
 }
 
-// ProofreadHandler 简单页面的表单提交处理：调用后端校阅接口并高亮展示结果
+// SecondServiceResponse 第二个服务整体响应结构
+type SecondServiceResponse struct {
+	Status int `json:"status"`
+	Data   struct {
+		Errors   []SecondServiceItem `json:"errors"`
+		Duration float64             `json:"duration"`
+	} `json:"data"`
+	Msg string `json:"msg"`
+}
+
+// ProofreadHandler 仍保留表单提交的旧逻辑（整页刷新），目前页面主要通过前端 JS 调用 JSON 接口
 func ProofreadHandler(c *gin.Context, cfg *config.GlobalConfig) {
-	text := c.PostForm("content")
-	if strings.TrimSpace(text) == "" {
-		c.HTML(http.StatusBadRequest, "index.html", gin.H{
-			"error":   "请输入需要校阅的内容",
-			"content": text,
-		})
+	// 兼容旧用法：简单复用页面渲染
+	c.HTML(http.StatusOK, "index.html", gin.H{})
+}
+
+// ProofreadAPI1Handler 调用服务一，返回 JSON 结果
+func ProofreadAPI1Handler(c *gin.Context, cfg *config.GlobalConfig) {
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Content) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "content 不能为空"})
 		return
 	}
+	text := req.Content
 
-	// 调用配置中的校阅接口
 	reqBody, err := json.Marshal(map[string]string{
 		"content": text,
 	})
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "index.html", gin.H{
-			"error":   "请求编码失败",
-			"content": text,
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "请求编码失败"})
 		return
 	}
 
 	resp, err := http.Post(cfg.ProofreadApiUrl, "application/json", bytes.NewReader(reqBody))
 	if err != nil {
-		c.HTML(http.StatusBadGateway, "index.html", gin.H{
-			"error":   fmt.Sprintf("调用校阅接口失败: %v", err),
-			"content": text,
-		})
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("调用校阅接口失败: %v", err)})
 		return
 	}
 	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			zap.S().Errorf(err.Error())
-		}
+		_ = Body.Close()
 	}(resp.Body)
 
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	var raw interface{}
-	err = json.Unmarshal(bodyBytes, &raw)
-	if err != nil {
-		fmt.Println("Invalid JSON:", err)
+	if err := json.Unmarshal(bodyBytes, &raw); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "服务一返回的不是合法 JSON"})
 		return
 	}
-	// 格式化 json，美观输出（服务一）
-	formattedJSON, err := json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
+	formattedJSON, _ := json.MarshalIndent(raw, "", "  ")
 
 	if resp.StatusCode != http.StatusOK {
-		c.HTML(http.StatusBadGateway, "index.html", gin.H{
+		c.JSON(http.StatusBadGateway, gin.H{
 			"error":       fmt.Sprintf("校阅接口返回错误状态码: %d", resp.StatusCode),
-			"content":     text,
 			"rawResponse": string(formattedJSON),
 		})
 		return
@@ -106,9 +103,8 @@ func ProofreadHandler(c *gin.Context, cfg *config.GlobalConfig) {
 
 	var result Result
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		c.HTML(http.StatusInternalServerError, "index.html", gin.H{
+		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":       fmt.Sprintf("解析校阅结果失败: %v", err),
-			"content":     text,
 			"rawResponse": string(formattedJSON),
 		})
 		return
@@ -116,54 +112,85 @@ func ProofreadHandler(c *gin.Context, cfg *config.GlobalConfig) {
 
 	highlighted := highlightContent(text, result.Data.Errors)
 
-	// 调用第二个校阅服务（用于对比）
-	var highlighted2 string
-	var rawResponse2 string
-	if cfg.ProofreadApiUrl2 != "" {
-		//resp2, err2 := http.Post(cfg.ProofreadApiUrl2, "application/json", bytes.NewReader(reqBody))
-		//if err2 == nil {
-		//	defer func(Body io.ReadCloser) {
-		//		_ = Body.Close()
-		//	}(resp2.Body)
+	c.JSON(http.StatusOK, gin.H{
+		"highlightedHtml": highlighted,
+		"errorCount":      len(result.Data.Errors),
+		"rawResponse":     string(formattedJSON),
+	})
+}
 
-		//bodyBytes2, _ := io.ReadAll(resp2.Body)
-
-		// 尝试格式化第二个服务的 JSON
-		//var raw2 interface{}
-		//if err := json.Unmarshal(bodyBytes2, &raw2); err == nil {
-		//	if formattedJSON2, err := json.MarshalIndent(raw2, "", "  "); err == nil {
-		//		rawResponse2 = string(formattedJSON2)
-		//	}
-		//} else {
-		//	rawResponse2 = string(bodyBytes2)
-		//}
-
-		// 只有在状态码 200 且解析成功时才高亮
-		//if resp2.StatusCode == http.StatusOK {
-		items := []SecondServiceItem{
-			{Tag: "replace", StartPos: 40, EndPos: 41, Text: "取"},
-			{Tag: "replace", StartPos: 137, EndPos: 138, Text: "懈"},
-			{Tag: "delete", StartPos: 175, EndPos: 176, Text: "成"},
-			{Tag: "insert", StartPos: 230, EndPos: 230, Text: "十八"},
-			{Tag: "delete", StartPos: 239, EndPos: 241, Text: "同志"},
-		}
-		//	if err := json.Unmarshal(bodyBytes2, &items); err == nil {
-
-		highlighted2 = highlightSecondService(text, items)
-		//}
-		//}
-		//}
+// ProofreadAPI2Handler 调用服务二，返回 JSON 结果
+func ProofreadAPI2Handler(c *gin.Context, cfg *config.GlobalConfig) {
+	if cfg.ProofreadApiUrl2 == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"highlightedHtml": "",
+			"rawResponse":     "",
+		})
+		return
 	}
 
-	c.HTML(http.StatusOK, "index.html", gin.H{
-		"content":      text,
-		"highlighted":  template.HTML(highlighted),
-		"highlighted2": template.HTML(highlighted2),
-		"errorItems":   result.Data.Errors,
-		"hasResult":    true,
-		"originalText": text,
-		"rawResponse":  string(formattedJSON),
-		"rawResponse2": rawResponse2,
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Content) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "content 不能为空"})
+		return
+	}
+	text := req.Content
+
+	reqBody, err := json.Marshal(map[string]string{
+		"content": text,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "请求编码失败"})
+		return
+	}
+
+	resp2, err2 := http.Post(cfg.ProofreadApiUrl2, "application/json", bytes.NewReader(reqBody))
+	if err2 != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("调用校阅服务二失败: %v", err2)})
+		return
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp2.Body)
+
+	bodyBytes2, _ := io.ReadAll(resp2.Body)
+
+	// 尝试格式化第二个服务的 JSON
+	var raw2 interface{}
+	var rawResponse2 string
+	if err := json.Unmarshal(bodyBytes2, &raw2); err == nil {
+		if formattedJSON2, err := json.MarshalIndent(raw2, "", "  "); err == nil {
+			rawResponse2 = string(formattedJSON2)
+		}
+	} else {
+		rawResponse2 = string(bodyBytes2)
+	}
+
+	if resp2.StatusCode != http.StatusOK {
+		c.JSON(http.StatusBadGateway, gin.H{
+			"error":       fmt.Sprintf("服务二返回错误状态码: %d", resp2.StatusCode),
+			"rawResponse": rawResponse2,
+		})
+		return
+	}
+
+	var respObj SecondServiceResponse
+	if err := json.Unmarshal(bodyBytes2, &respObj); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":       fmt.Sprintf("解析服务二结果失败: %v", err),
+			"rawResponse": rawResponse2,
+		})
+		return
+	}
+
+	items := respObj.Data.Errors
+	highlighted2 := highlightSecondService(text, items)
+
+	c.JSON(http.StatusOK, gin.H{
+		"highlightedHtml": highlighted2,
+		"rawResponse":     rawResponse2,
 	})
 }
 

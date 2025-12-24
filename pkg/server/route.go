@@ -20,8 +20,18 @@ func InitRouter(engine *gin.Engine, cfg *config.GlobalConfig) {
 		c.HTML(http.StatusOK, "index.html", gin.H{})
 	})
 
-	// 提交待校阅文本并展示结果
+	// 兼容旧的表单提交（整页刷新）
 	engine.POST("/proofread", func(c *gin.Context) {
 		ProofreadHandler(c, cfg)
+	})
+
+	// JSON 接口：服务一
+	engine.POST("/api/proofread/one", func(c *gin.Context) {
+		ProofreadAPI1Handler(c, cfg)
+	})
+
+	// JSON 接口：服务二
+	engine.POST("/api/proofread/two", func(c *gin.Context) {
+		ProofreadAPI2Handler(c, cfg)
 	})
 }
