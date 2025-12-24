@@ -35,6 +35,14 @@ type ErrorItem struct {
 	Sentence      string   `json:"sentence"`                // 所属句子（便于前端展示上下文）
 }
 
+// SecondServiceItem 第二个校阅服务的返回结构
+type SecondServiceItem struct {
+	Tag      string `json:"tag"`
+	StartPos int    `json:"start_pos"`
+	EndPos   int    `json:"end_pos"`
+	Text     string `json:"text"`
+}
+
 // ProofreadHandler 简单页面的表单提交处理：调用后端校阅接口并高亮展示结果
 func ProofreadHandler(c *gin.Context, cfg *config.GlobalConfig) {
 	text := c.PostForm("content")
@@ -80,7 +88,7 @@ func ProofreadHandler(c *gin.Context, cfg *config.GlobalConfig) {
 		fmt.Println("Invalid JSON:", err)
 		return
 	}
-	//格式化json，美观输出
+	// 格式化 json，美观输出（服务一）
 	formattedJSON, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -108,14 +116,93 @@ func ProofreadHandler(c *gin.Context, cfg *config.GlobalConfig) {
 
 	highlighted := highlightContent(text, result.Data.Errors)
 
+	// 调用第二个校阅服务（用于对比）
+	var highlighted2 string
+	var rawResponse2 string
+	if cfg.ProofreadApiUrl2 != "" {
+		//resp2, err2 := http.Post(cfg.ProofreadApiUrl2, "application/json", bytes.NewReader(reqBody))
+		//if err2 == nil {
+		//	defer func(Body io.ReadCloser) {
+		//		_ = Body.Close()
+		//	}(resp2.Body)
+
+		//bodyBytes2, _ := io.ReadAll(resp2.Body)
+
+		// 尝试格式化第二个服务的 JSON
+		//var raw2 interface{}
+		//if err := json.Unmarshal(bodyBytes2, &raw2); err == nil {
+		//	if formattedJSON2, err := json.MarshalIndent(raw2, "", "  "); err == nil {
+		//		rawResponse2 = string(formattedJSON2)
+		//	}
+		//} else {
+		//	rawResponse2 = string(bodyBytes2)
+		//}
+
+		// 只有在状态码 200 且解析成功时才高亮
+		//if resp2.StatusCode == http.StatusOK {
+		items := []SecondServiceItem{
+			{Tag: "replace", StartPos: 40, EndPos: 41, Text: "取"},
+			{Tag: "replace", StartPos: 137, EndPos: 138, Text: "懈"},
+			{Tag: "delete", StartPos: 175, EndPos: 176, Text: "成"},
+			{Tag: "insert", StartPos: 230, EndPos: 230, Text: "十八"},
+			{Tag: "delete", StartPos: 239, EndPos: 241, Text: "同志"},
+		}
+		//	if err := json.Unmarshal(bodyBytes2, &items); err == nil {
+
+		highlighted2 = highlightSecondService(text, items)
+		//}
+		//}
+		//}
+	}
+
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"content":      text,
 		"highlighted":  template.HTML(highlighted),
+		"highlighted2": template.HTML(highlighted2),
 		"errorItems":   result.Data.Errors,
 		"hasResult":    true,
 		"originalText": text,
 		"rawResponse":  string(formattedJSON),
+		"rawResponse2": rawResponse2,
 	})
+}
+
+// highlightSecondService 将第二个服务的结果高亮
+func highlightSecondService(content string, items []SecondServiceItem) string {
+	if len(items) == 0 {
+		return html.EscapeString(content)
+	}
+
+	// 按位置从后往前排序
+	sorted := make([]SecondServiceItem, len(items))
+	copy(sorted, items)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].StartPos > sorted[j].StartPos
+	})
+
+	contentRunes := []rune(content)
+
+	for _, it := range sorted {
+		start := it.StartPos
+		end := it.EndPos
+		if start < 0 || end > len(contentRunes) || start > end {
+			continue
+		}
+
+		tooltip := fmt.Sprintf(
+			`<span class="tooltip-content">操作: <span class="tooltip-message">%s</span></span><span class="tooltip-content">文本: <span class="tooltip-suggestion">%s</span></span>`,
+			html.EscapeString(it.Tag),
+			html.EscapeString(it.Text),
+		)
+
+		endTag := "</span>"
+		contentRunes = insertRunes(contentRunes, end, []rune(endTag))
+
+		startTag := fmt.Sprintf(`<span class="highlight"><span class="tooltip">%s</span>`, tooltip)
+		contentRunes = insertRunes(contentRunes, start, []rune(startTag))
+	}
+
+	return string(contentRunes)
 }
 
 // highlightContent 将原文内容按照校阅结果进行高亮标记

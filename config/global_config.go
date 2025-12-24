@@ -16,8 +16,9 @@ type IConfig interface {
 }
 
 type GlobalConfig struct {
-	Port            int    `json:"port,omitempty" yaml:"port,omitempty"`
-	ProofreadApiUrl string `json:"proofreadApiUrl,omitempty" yaml:"proofreadApiUrl,omitempty"`
+	Port             int    `json:"port,omitempty" yaml:"port,omitempty"`
+	ProofreadApiUrl  string `json:"proofreadApiUrl,omitempty" yaml:"proofreadApiUrl,omitempty"`
+	ProofreadApiUrl2 string `json:"proofreadApiUrl2,omitempty" yaml:"proofreadApiUrl2,omitempty"`
 }
 
 func (g *GlobalConfig) Validate() []error {
@@ -31,7 +32,7 @@ func (g *GlobalConfig) Validate() []error {
 func NewDefaultGlobalConfig() *GlobalConfig {
 	return &GlobalConfig{
 		Port:            3000,
-		ProofreadApiUrl: "127.0.0.1:8700",
+		ProofreadApiUrl: "http://127.0.0.1:8700/api/v1/proofread",
 	}
 }
 func TryLoadFromDisk(configFilePath string) (*GlobalConfig, error) {

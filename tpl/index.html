@@ -139,8 +139,23 @@
         .article-content {
             font-size: 16px;
             color: #333;
-            white-space: pre-wrap;
             word-wrap: break-word;
+        }
+
+        .compare-row {
+            display: flex;
+            gap: 24px;
+            margin-top: 10px;
+        }
+
+        .compare-col {
+            flex: 1;
+        }
+
+        .compare-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
         }
 
         .highlight {
@@ -370,11 +385,25 @@
         {{ if .hasResult }}
         <div class="article-item">
             <div class="article-header">
-                <h2>校阅结果</h2>
-                <div class="article-id">共 {{ len .errorItems }} 处提示</div>
+                <h2>校阅结果对比</h2>
             </div>
-            <div class="article-content">
-                {{ .highlighted }}
+            <div class="compare-row">
+                <div class="compare-col">
+                    <div class="compare-title">服务一（主服务） · 共 {{ len .errorItems }} 处提示</div>
+                    <div class="article-content">
+                        {{ .highlighted }}
+                    </div>
+                </div>
+                <div class="compare-col">
+                    <div class="compare-title">服务二（对比服务）</div>
+                    <div class="article-content">
+                        {{ if .highlighted2 }}
+                        {{ .highlighted2 }}
+                        {{ else }}
+                        <span class="hint">暂无结果或接口调用失败。</span>
+                        {{ end }}
+                    </div>
+                </div>
             </div>
         </div>
         {{ else }}
@@ -384,10 +413,19 @@
         {{ end }}
 
         {{ if .rawResponse }}
-        <details class="api-response-details">
-            <summary>接口原始响应（点击展开）</summary>
+        <details class="api-response-details" style="margin-top:16px;">
+            <summary>服务一原始响应（点击展开）</summary>
             <div class="api-response" style="border:none; padding: 10px 0 0 0; background: transparent;">
                 <pre class="api-response-body">{{ .rawResponse }}</pre>
+            </div>
+        </details>
+        {{ end }}
+
+        {{ if .rawResponse2 }}
+        <details class="api-response-details" style="margin-top:12px;">
+            <summary>服务二原始响应（点击展开）</summary>
+            <div class="api-response" style="border:none; padding: 10px 0 0 0; background: transparent;">
+                <pre class="api-response-body">{{ .rawResponse2 }}</pre>
             </div>
         </details>
         {{ end }}
