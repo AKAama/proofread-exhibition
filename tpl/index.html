@@ -338,25 +338,32 @@
             font-size: 14px;
         }
 
-        /* 按钮加载状态 */
-        button.loading {
-            position: relative;
-            color: transparent;
-            pointer-events: none;
+        /* 结果区域加载状态 */
+        .article-content.loading {
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        button.loading::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid #fff;
+        .article-content .service-loading {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .article-content .service-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #409EFF;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        .article-content .service-loading-text {
+            color: #666;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -368,12 +375,13 @@
         <div class="input-panel">
             <div class="input-panel-title">输入待校阅内容</div>
             <div class="input-panel-desc">在下方文本框中输入或粘贴文章内容，点击「开始校阅」后将在下方展示高亮结果。</div>
-            <form method="post" action="/proofread" id="proofreadForm">
+            <form id="proofreadForm">
                 <label>
-                    <textarea name="content" placeholder="在这里粘贴或输入需要校阅的文章...">{{ .content }}</textarea>
+                    <textarea name="content" id="contentTextarea"
+                        placeholder="在这里粘贴或输入需要校阅的文章...">{{ .content }}</textarea>
                 </label>
                 <div class="actions">
-                    <button type="submit" id="submitBtn">开始校阅</button>
+                    <button type="button" id="submitBtn">开始校阅</button>
                     <span class="hint">后端接口地址来自配置文件中的 proofreadApiUrl。</span>
                 </div>
             </form>
@@ -388,19 +396,15 @@
             </div>
             <div class="compare-row">
                 <div class="compare-col">
-                    <div class="compare-title">服务一（主服务） · 共 <span id="errorCount">{{ len .errorItems }}</span> 处提示</div>
+                    <div class="compare-title">服务一</div>
                     <div class="article-content" id="serviceOneContent">
                         {{ .highlighted }}
                     </div>
                 </div>
                 <div class="compare-col">
-                    <div class="compare-title">服务二（对比服务）</div>
+                    <div class="compare-title">服务二</div>
                     <div class="article-content" id="serviceTwoContent">
-                        {{ if .highlighted2 }}
                         {{ .highlighted2 }}
-                        {{ else }}
-                        <span class="hint">暂无结果或接口调用失败。</span>
-                        {{ end }}
                     </div>
                 </div>
             </div>
@@ -422,10 +426,10 @@
     </div>
 
     <script>
-        // 表单提交改为前端并行调用两个 JSON 接口
-        document.getElementById('proofreadForm').addEventListener('submit', function (e) {
+        // 按钮点击改为前端并行调用两个 JSON 接口
+        document.getElementById('submitBtn').addEventListener('click', function (e) {
             e.preventDefault();
-            var textarea = this.querySelector('textarea[name="content"]');
+            var textarea = document.getElementById('contentTextarea');
             var content = textarea.value.trim();
 
             if (!content) {
@@ -433,15 +437,30 @@
             }
 
             var submitBtn = document.getElementById('submitBtn');
-            submitBtn.classList.add('loading');
-            submitBtn.disabled = true;
+            var serviceOneContent = document.getElementById('serviceOneContent');
+            var serviceTwoContent = document.getElementById('serviceTwoContent');
 
+            // 禁用按钮，防止重复点击
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+            submitBtn.style.cursor = 'not-allowed';
+
+            // 显示加载动画
+            var loadingHtml = '<div class="service-loading"><div class="service-spinner"></div><div class="service-loading-text">正在校阅中...</div></div>';
+            serviceOneContent.innerHTML = loadingHtml;
+            serviceOneContent.classList.add('loading');
+            serviceTwoContent.innerHTML = loadingHtml;
+            serviceTwoContent.classList.add('loading');
+
+            // 跟踪两个服务的完成状态
             var pending = 2;
             function doneOne() {
                 pending--;
                 if (pending <= 0) {
-                    submitBtn.classList.remove('loading');
+                    // 两个服务都完成后，重新启用按钮
                     submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
                 }
             }
 
@@ -452,8 +471,11 @@
                 body: JSON.stringify({ content: content })
             }).then(function (res) { return res.json(); })
                 .then(function (data) {
-                    if (data.highlightedHtml !== undefined && document.getElementById('serviceOneContent')) {
-                        document.getElementById('serviceOneContent').innerHTML = data.highlightedHtml;
+                    serviceOneContent.classList.remove('loading');
+                    if (data.highlightedHtml !== undefined) {
+                        serviceOneContent.innerHTML = data.highlightedHtml;
+                    } else {
+                        serviceOneContent.innerHTML = '<span class="hint">服务一返回数据格式错误</span>';
                     }
                     if (data.errorCount !== undefined && document.getElementById('errorCount')) {
                         document.getElementById('errorCount').textContent = data.errorCount;
@@ -461,10 +483,9 @@
                     if (data.rawResponse !== undefined && document.getElementById('raw1')) {
                         document.getElementById('raw1').textContent = data.rawResponse;
                     }
-                }).catch(function () {
-                    if (document.getElementById('serviceOneContent')) {
-                        document.getElementById('serviceOneContent').innerHTML = '<span class=\"hint\">服务一请求失败</span>';
-                    }
+                }).catch(function (err) {
+                    serviceOneContent.classList.remove('loading');
+                    serviceOneContent.innerHTML = '<span class="hint">服务一请求失败</span>';
                 }).finally(doneOne);
 
             // 调用服务二
@@ -474,16 +495,18 @@
                 body: JSON.stringify({ content: content })
             }).then(function (res) { return res.json(); })
                 .then(function (data) {
-                    if (data.highlightedHtml !== undefined && document.getElementById('serviceTwoContent')) {
-                        document.getElementById('serviceTwoContent').innerHTML = data.highlightedHtml;
+                    serviceTwoContent.classList.remove('loading');
+                    if (data.highlightedHtml !== undefined) {
+                        serviceTwoContent.innerHTML = data.highlightedHtml;
+                    } else {
+                        serviceTwoContent.innerHTML = '<span class="hint">服务二返回数据格式错误</span>';
                     }
                     if (data.rawResponse !== undefined && document.getElementById('raw2')) {
                         document.getElementById('raw2').textContent = data.rawResponse;
                     }
-                }).catch(function () {
-                    if (document.getElementById('serviceTwoContent')) {
-                        document.getElementById('serviceTwoContent').innerHTML = '<span class=\"hint\">服务二请求失败</span>';
-                    }
+                }).catch(function (err) {
+                    serviceTwoContent.classList.remove('loading');
+                    serviceTwoContent.innerHTML = '<span class="hint">服务二请求失败</span>';
                 }).finally(doneOne);
         });
     </script>

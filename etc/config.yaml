@@ -1,4 +1,4 @@
 port: 3000
 proofreadApiUrl: "http://170.18.9.106:8700/api/v1/proofread"   # 校阅服务一
-proofreadApiUrl2: "http://170.18.9.106:8800/api/v1/proofread"  # 校阅服务二
+proofreadApiUrl2: "http://170.18.10.31:3030/api/v1/corrector"  # 校阅服务二
 
