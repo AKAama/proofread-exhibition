@@ -115,6 +115,7 @@ func ProofreadAPI1Handler(c *gin.Context, cfg *config.GlobalConfig) {
 	c.JSON(http.StatusOK, gin.H{
 		"highlightedHtml": highlighted,
 		"errorCount":      len(result.Data.Errors),
+		"errors":          result.Data.Errors,
 		"rawResponse":     string(formattedJSON),
 	})
 }
@@ -190,6 +191,7 @@ func ProofreadAPI2Handler(c *gin.Context, cfg *config.GlobalConfig) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"highlightedHtml": highlighted2,
+		"errors":          items,
 		"rawResponse":     rawResponse2,
 	})
 }
@@ -216,16 +218,25 @@ func highlightSecondService(content string, items []SecondServiceItem) string {
 			continue
 		}
 
-		tooltip := fmt.Sprintf(
-			`<span class="tooltip-content">操作: <span class="tooltip-message">%s</span></span><span class="tooltip-content">文本: <span class="tooltip-suggestion">%s</span></span>`,
-			html.EscapeString(it.Tag),
-			html.EscapeString(it.Text),
-		)
+		// 根据操作类型选择不同的高亮类
+		var highlightClass string
+		switch strings.ToLower(it.Tag) {
+		case "delete", "del", "删除":
+			highlightClass = "highlight-delete"
+		case "insert", "ins", "插入":
+			highlightClass = "highlight-insert"
+		case "replace", "rep", "替换":
+			highlightClass = "highlight-replace"
+		default:
+			highlightClass = "highlight"
+		}
 
+		// 插入结束标记
 		endTag := "</span>"
 		contentRunes = insertRunes(contentRunes, end, []rune(endTag))
 
-		startTag := fmt.Sprintf(`<span class="highlight"><span class="tooltip">%s</span>`, tooltip)
+		// 插入开始标记（根据操作类型使用不同的CSS类）
+		startTag := fmt.Sprintf(`<span class="%s">`, highlightClass)
 		contentRunes = insertRunes(contentRunes, start, []rune(startTag))
 	}
 
@@ -258,15 +269,12 @@ func highlightContent(content string, results []ErrorItem) string {
 			continue
 		}
 
-		// 构建 tooltip 内容
-		tooltipHTML := buildTooltip(result)
-
 		// 插入结束标记
 		endTag := "</span>"
 		contentRunes = insertRunes(contentRunes, end, []rune(endTag))
 
-		// 插入开始标记和 tooltip
-		startTag := fmt.Sprintf(`<span class="highlight"><span class="tooltip">%s</span>`, tooltipHTML)
+		// 插入开始标记（仅高亮，不包含tooltip）
+		startTag := `<span class="highlight">`
 		contentRunes = insertRunes(contentRunes, start, []rune(startTag))
 	}
 

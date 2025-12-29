@@ -16,13 +16,14 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: #f5f5f5;
-            padding: 20px;
+            padding: 0;
+            margin: 0;
             line-height: 1.8;
         }
 
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            width: 100%;
+            margin: 0;
         }
 
         h1 {
@@ -36,8 +37,9 @@
             background: white;
             padding: 24px 28px;
             margin-bottom: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 0;
+            box-shadow: none;
+            border-bottom: 1px solid #e5e7eb;
         }
 
         .input-panel-title {
@@ -112,8 +114,20 @@
             background: white;
             padding: 30px;
             margin-bottom: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 0;
+            box-shadow: none;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .article-items-container {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+
+        .article-items-container .article-item {
+            flex: 1;
+            margin-bottom: 0;
         }
 
         .article-header {
@@ -142,83 +156,147 @@
             word-wrap: break-word;
         }
 
-        .compare-row {
-            display: flex;
-            gap: 24px;
-            margin-top: 10px;
-        }
-
-        .compare-col {
-            flex: 1;
-        }
-
         .compare-title {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
         }
 
         .highlight {
             background: linear-gradient(120deg, #ffd54f 0%, #ffb74d 100%);
             padding: 2px 4px;
             border-radius: 3px;
-            cursor: pointer;
-            position: relative;
             display: inline-block;
-            transition: all 0.2s;
         }
 
-        .highlight:hover {
-            background: linear-gradient(120deg, #ffc107 0%, #ff9800 100%);
-            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+        /* 服务二：删除操作 - 红色 */
+        .highlight-delete {
+            background: linear-gradient(120deg, #ff6b6b 0%, #ee5a6f 100%);
+            padding: 2px 4px;
+            border-radius: 3px;
+            display: inline-block;
         }
 
-        .tooltip {
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            margin-bottom: 8px;
-            padding: 12px 16px;
-            background: #333;
-            color: white;
+        /* 服务二：插入操作 - 绿色 */
+        .highlight-insert {
+            background: linear-gradient(120deg, #51cf66 0%, #40c057 100%);
+            padding: 2px 4px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        /* 服务二：替换操作 - 蓝色 */
+        .highlight-replace {
+            background: linear-gradient(120deg, #4dabf7 0%, #339af0 100%);
+            padding: 2px 4px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        /* 错误列表样式 */
+        .error-list {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .error-list-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .error-item {
+            background: #fff;
+            border: 1px solid #e5e7eb;
             border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            transition: box-shadow 0.2s;
+        }
+
+        .error-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .error-item-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .error-item-index {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: #409EFF;
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .error-item-text {
+            font-weight: 600;
+            color: #333;
+            font-size: 15px;
+        }
+
+        .error-item-type {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #f0f9ff;
+            color: #409EFF;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .error-item-details {
+            margin-left: 34px;
             font-size: 14px;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            color: #666;
         }
 
-        .tooltip::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 6px solid transparent;
-            border-top-color: #333;
+        .error-item-suggestions {
+            margin-top: 6px;
         }
 
-        .highlight:hover .tooltip {
-            opacity: 1;
-        }
-
-        .tooltip-content {
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .tooltip-suggestion {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-
-        .tooltip-message {
-            color: #ffd54f;
+        .error-item-suggestions-label {
+            color: #999;
             font-size: 13px;
+        }
+
+        .error-item-suggestion {
+            display: inline-block;
+            background: #f0f9ff;
+            color: #409EFF;
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin-right: 8px;
+            margin-top: 4px;
+            font-size: 13px;
+        }
+
+        .error-item-message {
+            margin-top: 6px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .error-item-sentence {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #f9fafb;
+            border-left: 3px solid #409EFF;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
         }
 
         .empty-state {
@@ -390,42 +468,109 @@
             {{ end }}
         </div>
 
-        <div class="article-item">
-            <div class="article-header">
-                <h2>校阅结果对比</h2>
+        <div class="article-items-container">
+            <div class="article-item">
+                <div class="compare-title">大语言模型</div>
+                <div class="article-content" id="serviceOneContent">
+                    {{ .highlighted }}
+                </div>
+                <div class="error-list" id="serviceOneErrorList" style="display: none;"></div>
             </div>
-            <div class="compare-row">
-                <div class="compare-col">
-                    <div class="compare-title">服务一</div>
-                    <div class="article-content" id="serviceOneContent">
-                        {{ .highlighted }}
-                    </div>
+
+            <div class="article-item">
+                <div class="compare-title">训练模型</div>
+                <div class="article-content" id="serviceTwoContent">
+                    {{ .highlighted2 }}
                 </div>
-                <div class="compare-col">
-                    <div class="compare-title">服务二</div>
-                    <div class="article-content" id="serviceTwoContent">
-                        {{ .highlighted2 }}
-                    </div>
-                </div>
+                <div class="error-list" id="serviceTwoErrorList" style="display: none;"></div>
             </div>
         </div>
-
-        <details class="api-response-details" style="margin-top:16px;">
-            <summary>服务一原始响应（点击展开）</summary>
-            <div class="api-response" style="border:none; padding: 10px 0 0 0; background: transparent;">
-                <pre class="api-response-body" id="raw1">{{ .rawResponse }}</pre>
-            </div>
-        </details>
-
-        <details class="api-response-details" style="margin-top:12px;">
-            <summary>服务二原始响应（点击展开）</summary>
-            <div class="api-response" style="border:none; padding: 10px 0 0 0; background: transparent;">
-                <pre class="api-response-body" id="raw2">{{ .rawResponse2 }}</pre>
-            </div>
-        </details>
     </div>
 
     <script>
+        // 渲染错误列表（服务一格式）
+        function renderErrorListServiceOne(errors, containerId) {
+            var container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (!errors || errors.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            var html = '<div class="error-list-title">错误列表（共 ' + errors.length + ' 处）</div>';
+            for (var i = 0; i < errors.length; i++) {
+                var err = errors[i];
+                html += '<div class="error-item">';
+                html += '<div class="error-item-header">';
+                html += '<span class="error-item-index">' + (i + 1) + '</span>';
+                html += '<span class="error-item-text">' + escapeHtml(err.text || '') + '</span>';
+                if (err.type) {
+                    html += '<span class="error-item-type">' + escapeHtml(err.type) + '</span>';
+                }
+                html += '</div>';
+                html += '<div class="error-item-details">';
+                if (err.suggestions && err.suggestions.length > 0) {
+                    html += '<div class="error-item-suggestions">';
+                    html += '<span class="error-item-suggestions-label">建议：</span>';
+                    for (var j = 0; j < err.suggestions.length; j++) {
+                        html += '<span class="error-item-suggestion">' + escapeHtml(err.suggestions[j]) + '</span>';
+                    }
+                    html += '</div>';
+                }
+                if (err.message) {
+                    html += '<div class="error-item-message">原因：' + escapeHtml(err.message) + '</div>';
+                }
+                if (err.sentence) {
+                    html += '<div class="error-item-sentence">' + escapeHtml(err.sentence) + '</div>';
+                }
+                html += '</div>';
+                html += '</div>';
+            }
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        // 渲染错误列表（服务二格式）
+        function renderErrorListServiceTwo(errors, containerId) {
+            var container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (!errors || errors.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            var html = '<div class="error-list-title">错误列表（共 ' + errors.length + ' 处）</div>';
+            for (var i = 0; i < errors.length; i++) {
+                var err = errors[i];
+                html += '<div class="error-item">';
+                html += '<div class="error-item-header">';
+                html += '<span class="error-item-index">' + (i + 1) + '</span>';
+                html += '<span class="error-item-text">' + escapeHtml(err.text || '') + '</span>';
+                if (err.tag) {
+                    html += '<span class="error-item-type">' + escapeHtml(err.tag) + '</span>';
+                }
+                html += '</div>';
+                html += '<div class="error-item-details">';
+                if (err.text) {
+                    html += '<div class="error-item-message">操作：' + escapeHtml(err.tag || '') + '</div>';
+                }
+                html += '</div>';
+                html += '</div>';
+            }
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        // HTML转义函数
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         // 按钮点击改为前端并行调用两个 JSON 接口
         document.getElementById('submitBtn').addEventListener('click', function (e) {
             e.preventDefault();
@@ -439,6 +584,12 @@
             var submitBtn = document.getElementById('submitBtn');
             var serviceOneContent = document.getElementById('serviceOneContent');
             var serviceTwoContent = document.getElementById('serviceTwoContent');
+            var serviceOneErrorList = document.getElementById('serviceOneErrorList');
+            var serviceTwoErrorList = document.getElementById('serviceTwoErrorList');
+
+            // 隐藏错误列表
+            if (serviceOneErrorList) serviceOneErrorList.style.display = 'none';
+            if (serviceTwoErrorList) serviceTwoErrorList.style.display = 'none';
 
             // 禁用按钮，防止重复点击
             submitBtn.disabled = true;
@@ -477,6 +628,9 @@
                     } else {
                         serviceOneContent.innerHTML = '<span class="hint">服务一返回数据格式错误</span>';
                     }
+                    if (data.errors && serviceOneErrorList) {
+                        renderErrorListServiceOne(data.errors, 'serviceOneErrorList');
+                    }
                     if (data.errorCount !== undefined && document.getElementById('errorCount')) {
                         document.getElementById('errorCount').textContent = data.errorCount;
                     }
@@ -486,6 +640,7 @@
                 }).catch(function (err) {
                     serviceOneContent.classList.remove('loading');
                     serviceOneContent.innerHTML = '<span class="hint">服务一请求失败</span>';
+                    if (serviceOneErrorList) serviceOneErrorList.style.display = 'none';
                 }).finally(doneOne);
 
             // 调用服务二
@@ -501,12 +656,16 @@
                     } else {
                         serviceTwoContent.innerHTML = '<span class="hint">服务二返回数据格式错误</span>';
                     }
+                    if (data.errors && serviceTwoErrorList) {
+                        renderErrorListServiceTwo(data.errors, 'serviceTwoErrorList');
+                    }
                     if (data.rawResponse !== undefined && document.getElementById('raw2')) {
                         document.getElementById('raw2').textContent = data.rawResponse;
                     }
                 }).catch(function (err) {
                     serviceTwoContent.classList.remove('loading');
                     serviceTwoContent.innerHTML = '<span class="hint">服务二请求失败</span>';
+                    if (serviceTwoErrorList) serviceTwoErrorList.style.display = 'none';
                 }).finally(doneOne);
         });
     </script>
